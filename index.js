@@ -1,22 +1,14 @@
 const express = require('express');
 const cors = require('cors');
-const mongoose = require('mongoose');
+const { createPool } = require('mysql')
 
-
-const CONNECTURI = 'mongodb+srv://daniel:1234567890@cluster0.1z9xs.mongodb.net/Cluster0?retryWrites=true&w=majority';
-
-mongoose.connect(CONNECTURI,{useNewUrlParser:true,useUnifiedTopology:true},()=>{
-    console.log("DB Connected");
+const pool = createPool({
+    host:"localhost",
+    database:"test",
+    user:"root",
+    password:"",
+    connectionLimit:10
 })
-
-
-const schema  = mongoose.Schema({
-url:String,
-param:String
-});
-
-const shortUrl = mongoose.model('Urls',schema);
-
 
 const app = express();
 app.use(express.json()); 
@@ -32,42 +24,47 @@ app.post('/add',(req,res)=>{
     const {url , param} = req.body;
     if(url === '' || param === ''){
         return res.json({
-            error:"Failed ! Please Check all Feilds"
+            status:"Failed ! Please Check all Feilds",
+            errormsg:err.message
         })
     }else{
-
-    const newUrl = new shortUrl({
-        url,
-        param
-    })
-
-    newUrl.save().then(()=>{
-        return res.json({
-            success:"added to database"
+    pool.query("INSERT INTO `url`(`url`, `param`) VALUES (?,?)",[url,param],(err,results,fields) => {
+        if(err) return res.json({
+            status:"Failed",
+            errormsg:err.message
         });
-    }).catch((err)=>{
-        return res.json({
-            error:"Failed",
-            errormsg:err
-        });
+        res.json({
+            status:"Success",
+            data:results
+        })
     })
-
   
 }
 });
 
 
 
-app.get('/get',(req,res)=>{
-shortUrl.find().then((response) => {
-    res.json({
-        response
+app.post('/get',(req,res)=>{
+const { param } = req.body;
+
+if(param == ''){
+    return res.json({
+        status:"Failed",
+        errormsg:"Please specify param value"
+    });
+}else{
+    pool.query(" SELECT `url`,`param` FROM `url` WHERE `param` = ? ",[param],(err,results,fields) => {
+        if(err) return res.json({
+            status:"Failed",
+            errormsg:err.message
+        });
+        res.json({
+            status:"Success",
+            data:results
+        })
     })
-}).catch((err) =>{
-    res.json({
-        error:err.msg
-    })
-})
+}
+
 })
 
 
@@ -77,4 +74,4 @@ shortUrl.find().then((response) => {
 
 
 
-app.listen(80);
+app.listen(90);
